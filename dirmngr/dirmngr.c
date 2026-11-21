@@ -76,6 +76,7 @@
 #include "../common/gc-opt-flags.h"
 #include "dns-stuff.h"
 #include "http-common.h"
+#include "wkd.h"
 
 #ifndef ENAMETOOLONG
 # define ENAMETOOLONG EINVAL
@@ -151,6 +152,7 @@ enum cmd_and_opt_values {
   oUseTor,
   oNoUseTor,
   oKeyServer,
+  oWKDCacheTTL,
   oNameServer,
   oDisableCheckOwnSocket,
   oStandardResolver,
@@ -261,6 +263,8 @@ static gpgrt_opt_t opts[] = {
                 N_("|URL|use keyserver at URL")),
   ARGPARSE_s_s (oHkpCaCert, "hkp-cacert",
                 N_("|FILE|use the CA certificates in FILE for HKP over TLS")),
+  ARGPARSE_s_i (oWKDCacheTTL, "wkd-cache-ttl",
+                N_("|N|cache WKD results for N seconds")),
 
   ARGPARSE_header ("LDAP", N_("Configuration for X.509 servers")),
 
@@ -710,6 +714,7 @@ parse_rereadable_options (gpgrt_argparse_t *pargs, int reread)
       opt.ocsp_current_period = 3 * 60 * 60;  /* 3 hours. */
       opt.max_replies = DEFAULT_MAX_REPLIES;
       opt.user_agent = "GnuPG/2.6";
+      opt.wkd_cache_ttl = WKD_DEFAULT_CACHE_TTL;
       while (opt.ocsp_signer)
         {
           fingerprint_list_t tmp = opt.ocsp_signer->next;
@@ -883,6 +888,10 @@ parse_rereadable_options (gpgrt_argparse_t *pargs, int reread)
         FREE_STRLIST (opt.keyserver);
       else if (*pargs->r.ret_str)
         add_to_strlist (&opt.keyserver, pargs->r.ret_str);
+      break;
+
+    case oWKDCacheTTL:
+      opt.wkd_cache_ttl = pargs->r.ret_int > 0? pargs->r.ret_int : 0;
       break;
 
     case oNameServer:
@@ -2088,6 +2097,7 @@ dirmngr_sighup_action (void)
   cert_cache_init (hkp_cacert_filenames);
   crl_cache_init ();
   http_reinitialize ();
+  wkd_cache_flush ();
   reload_dns_stuff (0);
   ks_hkp_reload ();
 }

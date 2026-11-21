@@ -1,0 +1,17 @@
+{
+  "root": "/home/dev/feedback/uid31138",
+  "B": "/home/dev/feedback/uid31138",
+  "sha": "d95c58f54998d43c1dd56519160d4ef192cccfa7",
+  "wslDistro": "Ubuntu-26.04",
+  "source": {
+    "owner": "gpg",
+    "repo": "gnupg",
+    "sha": "d95c58f54998d43c1dd56519160d4ef192cccfa7"
+  },
+  "fork": {
+    "owner": "Rrr119",
+    "repo": "gnupg",
+    "cloneUrl": "https://github.com/Rrr119/gnupg.git"
+  },
+  "at": "2026-11-21T02:06:40.161Z"
+}

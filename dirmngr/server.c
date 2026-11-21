@@ -57,6 +57,7 @@
 #endif
 #include "ks-action.h"
 #include "ks-engine.h"
+#include "wkd.h"
 #if USE_LDAP
 # include "ldap-parse-uri.h"
 #endif
@@ -924,14 +925,12 @@ proc_wkd_get (ctrl_t ctrl, assuan_context_t ctx, char *line)
   char *domain_orig;/* Points to mbox.  This is the used for the
                      * query; i.e. the domain part of the
                      * addrspec.  */
-  char sha1buf[20];
   char *uri = NULL;
-  char *encodedhash = NULL;
   int opt_submission_addr;
   int opt_policy_flags;
   int is_wkd_query;   /* True if this is a real WKD query.  */
   int no_log = 0;
-  char portstr[20] = { 0 };
+  unsigned int wkd_port = 0;
   int subdomain_mode;
   int try_without_subdomain = 0;
 
@@ -1057,84 +1056,41 @@ proc_wkd_get (ctrl_t ctrl, assuan_context_t ctx, char *line)
                 }
               domain = domainbuf;
               if (srvs[i].port)
-                snprintf (portstr, sizeof portstr, ":%hu", srvs[i].port);
+                wkd_port = srvs[i].port;
               break;
             }
         }
       xfree (srvs);
     }
 
-  /* Prepare the hash of the local part.  */
-  gcry_md_hash_buffer (GCRY_MD_SHA1, sha1buf, mbox, strlen (mbox));
-  xfree (encodedhash);
-  encodedhash = zb32_encode (sha1buf, 8*20);
-  if (!encodedhash)
-    {
-      err = gpg_error_from_syserror ();
-      goto leave;
-    }
-
   xfree (uri);
-  if (opt_submission_addr)
-    {
-      uri = strconcat ("https://",
-                       domain,
-                       portstr,
-                       "/.well-known/openpgpkey/",
-                       subdomain_mode? domain_orig : "",
-                       subdomain_mode? "/" : "",
-                       "submission-address",
-                       NULL);
-    }
-  else if (opt_policy_flags)
-    {
-      uri = strconcat ("https://",
-                       domain,
-                       portstr,
-                       "/.well-known/openpgpkey/",
-                       subdomain_mode? domain_orig : "",
-                       subdomain_mode? "/" : "",
-                       "policy",
-                       NULL);
-    }
-  else
-    {
-      char *escapedmbox;
+  err = wkd_make_url (mbox,
+                      opt_submission_addr? WKD_REQUEST_SUBMISSION :
+                      opt_policy_flags? WKD_REQUEST_POLICY :
+                      WKD_REQUEST_KEY,
+                      domain, wkd_port,
+                      subdomain_mode? domain_orig : NULL,
+                      &uri);
+  if (err)
+    goto leave;
 
-      escapedmbox = http_escape_string (mbox, "%;?&=+#");
-      if (escapedmbox)
-        {
-          uri = strconcat ("https://",
-                           domain,
-                           portstr,
-                           "/.well-known/openpgpkey/",
-                           subdomain_mode? domain_orig : "",
-                           subdomain_mode? "/" : "",
-                           "hu/",
-                           encodedhash,
-                           "?l=",
-                           escapedmbox,
-                           NULL);
-          xfree (escapedmbox);
-          no_log = 1;
-          if (uri)
-            {
-              err = dirmngr_status_printf (ctrl, "SOURCE", "https://%s%s",
-                                           domain, portstr);
-              if (err)
-                goto leave;
-            }
-        }
-    }
-  if (!uri)
+  if (is_wkd_query)
     {
-      err = gpg_error_from_syserror ();
-      goto leave;
+      char portstr[20] = { 0 };
+
+      no_log = 1;
+      if (wkd_port)
+        snprintf (portstr, sizeof portstr, ":%u", wkd_port);
+      err = dirmngr_status_printf (ctrl, "SOURCE", "https://%s%s",
+                                   domain, portstr);
+      if (err)
+        goto leave;
     }
 
   /* Setup an output stream and perform the get.  */
   {
     estream_t outfp;
+    int from_cache = 0;
 
     outfp = ctx? es_fopencookie (ctx, "w", data_line_cookie_functions) : NULL;
     if (!outfp && ctx)
@@ -1149,10 +1105,17 @@ proc_wkd_get (ctrl_t ctrl, assuan_context_t ctx, char *line)
             ctrl->server_local->inhibit_data_logging_now = 0;
             ctrl->server_local->inhibit_data_logging_count = 0;
           }
-        err = ks_action_fetch (ctrl, uri, outfp);
+        if (is_wkd_query && opt.wkd_cache_ttl)
+          err = wkd_fetch_cached (ctrl, uri, opt.wkd_cache_ttl,
+                                  ks_action_fetch, outfp, &from_cache,
+                                  gnupg_get_time ());
+        else
+          err = ks_action_fetch (ctrl, uri, outfp);
         es_fclose (outfp);
         if (ctrl->server_local)
           ctrl->server_local->inhibit_data_logging = 0;
+        if (from_cache)
+          dirmngr_status_printf (ctrl, "NOTE", "wkd_cached_result %u", 0);
 
         /* Register the result under the domain name of MBOX. */
         switch (gpg_err_code (err))
@@ -1207,7 +1170,6 @@ proc_wkd_get (ctrl_t ctrl, assuan_context_t ctx, char *line)
   if (try_without_subdomain && err)
     err = gpg_error (GPG_ERR_WRONG_NAME);
   xfree (uri);
-  xfree (encodedhash);
   xfree (mbox);
   xfree (domainbuf);
   return err;

@@ -85,6 +85,7 @@ dirmngr_SOURCES = dirmngr.c dirmngr.h server.c crlcache.c crlfetch.c	\
 	ocsp.c ocsp.h validate.c validate.h  \
 	dns-stuff.c dns-stuff.h \
 	http.c http.h http-common.c http-common.h http-ntbtls.c \
+	wkd.c wkd.h \
 	ks-action.c ks-action.h ks-engine.h \
 	ks-engine-hkp.c ks-engine-http.c ks-engine-finger.c ks-engine-kdns.c
 
@@ -144,7 +145,7 @@ t_common_ldadd = $(libcommon) $(LIBASSUAN_LIBS)  \
                  $(LIBGNUTLS_LIBS) \
                  $(NETLIBS) $(DNSLIBS) $(LIBINTL) $(LIBICONV)
 
-module_tests = t-http-basic
+module_tests = t-http-basic t-wkd
 
 if USE_LDAP
 module_tests += t-ldap-parse-uri t-ldap-misc
@@ -184,6 +185,15 @@ t_http_basic_LDADD   = $(t_common_ldadd) \
                  $(NTBTLS_LIBS) $(KSBA_LIBS) $(LIBGCRYPT_LIBS) \
                  $(GPG_ERROR_LIBS) \
                  $(LIBGNUTLS_LIBS) $(DNSLIBS)
+
+t_wkd_SOURCES = $(t_common_src) t-wkd.c wkd.c domaininfo.c misc.c http.c \
+	        dns-stuff.c http-common.c
+t_wkd_CFLAGS  = -DWITHOUT_NPTH=1  $(USE_C99_CFLAGS) \
+	        $(LIBGCRYPT_CFLAGS) $(NTBTLS_CFLAGS) $(LIBGNUTLS_CFLAGS) \
+                $(LIBASSUAN_CFLAGS) $(GPG_ERROR_CFLAGS) $(KSBA_CFLAGS)
+t_wkd_LDADD   = $(t_common_ldadd) \
+	        $(NTBTLS_LIBS) $(KSBA_LIBS) $(LIBGCRYPT_LIBS) \
+	        $(GPG_ERROR_LIBS) $(LIBGNUTLS_LIBS) $(DNSLIBS)
 
 t_ldap_parse_uri_SOURCES = \
 	t-ldap-parse-uri.c ldap-parse-uri.c ldap-parse-uri.h \

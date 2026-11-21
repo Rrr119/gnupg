@@ -166,6 +166,7 @@ struct
                                        current after nextUpdate. */
 
   strlist_t keyserver;              /* List of default keyservers.  */
+  unsigned int wkd_cache_ttl;       /* Lifetime of cached WKD keys.  */
 
   const char *user_agent;           /* The HTTP Use-Agent (never NULL).  */
 

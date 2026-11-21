@@ -1,6 +1,11 @@
 Noteworthy changes in version 2.5.25 (unreleased)
 -------------------------------------------------
 
+ * New and extended features:
+
+   - dirmngr: Cache successful Web Key Directory lookups.  The lifetime
+     of cached results can be set with the new option --wkd-cache-ttl.
+
  * Bug fixes:
 
 

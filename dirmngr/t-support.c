@@ -41,3 +41,14 @@ dirmngr_status_printf (ctrl_t ctrl, const char *keyword,
 
   return 0;
 }
+
+
+/* Stub for testing. See server.c for the real implementation.  */
+gpg_error_t
+dirmngr_status_helpf (ctrl_t ctrl, const char *format, ...)
+{
+  (void)ctrl;
+  (void)format;
+
+  return 0;
+}

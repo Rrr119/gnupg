@@ -351,6 +351,12 @@ specified in the global config file.
 
 There is no default keyserver since version 2.5.3.
 
+@item --wkd-cache-ttl @var{n}
+@opindex wkd-cache-ttl
+Cache successful Web Key Directory (WKD) lookups for @var{n} seconds.
+The value 0 disables the cache.  Cached results are discarded on
+@code{SIGHUP}.  The default is 600 seconds.
+
 Windows users with a keyserver running on their Active Directory
 may use the short form @code{ldap:///} for @var{name} to access this directory.
 
